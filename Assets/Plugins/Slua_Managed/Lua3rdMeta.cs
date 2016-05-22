@@ -56,17 +56,17 @@ namespace SLua{
 			get{
 				#if !SLUA_STANDALONE
 				if(_instance == null){
-					_instance = Resources.Load<Lua3rdMeta>("lua3rdmeta");
+					_instance = Resources.Load<Lua3rdMeta>("slua_3rdmeta");
 				}
 
 				#if UNITY_EDITOR
 				if(_instance == null){
 					_instance = ScriptableObject.CreateInstance<Lua3rdMeta>();
-					string path = "Assets/Slua/Meta/Resources";
+					string path = "Assets/Resources";
 					if(!Directory.Exists(path)){
 						Directory.CreateDirectory(path);
 					}
-					UnityEditor.AssetDatabase.CreateAsset(_instance,Path.Combine(path,"lua3rdmeta.asset"));
+					UnityEditor.AssetDatabase.CreateAsset(_instance,Path.Combine(path,"slua_3rdmeta.asset"));
 				}
 
 				#endif

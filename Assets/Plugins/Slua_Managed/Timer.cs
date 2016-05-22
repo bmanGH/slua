@@ -122,7 +122,7 @@ namespace SLua
 			return (int)(nowTime * 1000);
 		}
 
-		internal static void tick(float deltaTime)
+		public static void tick(float deltaTime)
 		{
 			nowTime += deltaTime;
 			pileSecs += deltaTime;

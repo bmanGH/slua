@@ -24,7 +24,7 @@ namespace SLua
 {
     using System;
     using LuaInterface;
-    class LuaValueType : LuaObject
+    public class LuaValueType : LuaObject
     {
 #if !UNITY_IPHONE && !LUA_5_3 && !SLUA_STANDALONE
         static string script = @"

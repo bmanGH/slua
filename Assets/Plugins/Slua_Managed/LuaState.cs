@@ -145,9 +145,124 @@ namespace SLua
 
 	public class LuaThread : LuaVar
 	{
+		protected object yieldResult;
+
 		public LuaThread(IntPtr l, int r)
 			: base(l, r)
 		{ }
+
+		public LuaThreadStatus Resume ()
+		{
+			if (!state.isMainThread())
+			{
+				Logger.LogError("Can't resume lua thread in bg thread");
+				return LuaThreadStatus.LUA_ERRERR;
+			}
+
+			yieldResult = null;
+
+			IntPtr L = state.L;
+			push (L);
+			IntPtr threadL = LuaDLL.lua_tothread(L, -1);
+			LuaDLL.lua_pop (L, 1);
+
+			int ret = LuaDLL.lua_resume(threadL, 0);
+
+			if (ret > (int)LuaThreadStatus.LUA_YIELD) {
+				LuaObject.pushTry(threadL);
+				LuaDLL.lua_pushthread(threadL);
+				LuaDLL.lua_pushvalue(threadL, -3); // error message
+				LuaDLL.lua_call(threadL, 2, 0);
+
+				LuaDLL.lua_settop(threadL, 0);
+			} else {
+				int top = LuaDLL.lua_gettop (threadL);
+				if (top > 0) {
+					if (top == 1) {
+						yieldResult = LuaObject.checkVar (threadL, top);
+						LuaDLL.lua_pop (threadL, 1);
+					} else {
+						object[] o = new object[top];
+						for (int n = 1; n <= top; n++) {
+							o [n - 1] = LuaObject.checkVar (threadL, n);
+						}
+						LuaDLL.lua_settop (L, 0);
+						yieldResult = o;
+					}
+				}
+			}
+
+			return (LuaThreadStatus)ret;
+		}
+
+		public LuaThreadStatus Resume (params object[] args)
+		{
+			if (!state.isMainThread())
+			{
+				Logger.LogError("Can't resume lua thread in bg thread");
+				return LuaThreadStatus.LUA_ERRERR;
+			}
+
+			yieldResult = null;
+
+			IntPtr L = state.L;
+			push (L);
+			IntPtr threadL = LuaDLL.lua_tothread(L, -1);
+			LuaDLL.lua_pop (L, 1);
+
+			int nArgs = 0;
+			if (args != null)
+			{
+				nArgs = args.Length;
+				for (int i = 0; i < args.Length; i++)
+				{
+					LuaObject.pushVar (threadL, args[i]);
+				}
+			}
+
+			int ret = LuaDLL.lua_resume(threadL, nArgs);
+
+			if (ret > (int)LuaThreadStatus.LUA_YIELD) {
+				LuaObject.pushTry(threadL);
+				LuaDLL.lua_pushthread(threadL);
+				LuaDLL.lua_pushvalue(threadL, -3); // error message
+				LuaDLL.lua_call(threadL, 2, 0);
+
+				LuaDLL.lua_settop(threadL, 0);
+			} else {
+				int top = LuaDLL.lua_gettop (threadL);
+				if (top > 0) {
+					if (top == 1) {
+						yieldResult = LuaObject.checkVar (threadL, top);
+						LuaDLL.lua_pop (threadL, 1);
+					} else {
+						object[] o = new object[top];
+						for (int n = 1; n <= top; n++) {
+							o [n - 1] = LuaObject.checkVar (threadL, n);
+						}
+						LuaDLL.lua_settop (L, 0);
+						yieldResult = o;
+					}
+				}
+			}
+
+			return (LuaThreadStatus)ret;
+		}
+
+		public LuaThreadStatus getStatus ()
+		{
+			IntPtr L = state.L;
+			push (L);
+			IntPtr threadL = LuaDLL.lua_tothread(L, -1);
+			LuaDLL.lua_pop (L, 1);
+
+			return (LuaThreadStatus)LuaDLL.lua_status (threadL);
+		}
+
+		public object GetYieldResult ()
+		{
+			return yieldResult;
+		}
 	}
 
 	public class LuaDelegate : LuaFunction
@@ -294,6 +409,27 @@ namespace SLua
 		// public object call(int a1,float a2,string a3,object a4)
 		
 		// using specific type to avoid type boxing/unboxing
+
+		public object call (float f1) {
+			int error = LuaObject.pushTry(state.L);
+
+			LuaDLL.lua_pushnumber(L, f1);
+			if (innerCall (1, error)) {
+				return state.topObjects (error - 1);
+			}
+			return null;
+		}
+
+		public object call (object a1, float f2) {
+			int error = LuaObject.pushTry(state.L);
+
+			LuaObject.pushVar (state.L, a1);
+			LuaDLL.lua_pushnumber(L, f2);
+			if (innerCall (2, error)) {
+				return state.topObjects (error - 1);
+			}
+			return null;
+		}
 	}
 
 	public class LuaTable : LuaVar, IEnumerable<LuaTable.TablePair>
@@ -1156,5 +1292,24 @@ end
 				u.act(l, u.r);
 			}
 		}
+
+
+		public int require (string ns) {
+			IntPtr l = L;
+
+			int top = LuaDLL.lua_gettop (l);
+			int errFunc = LuaObject.pushTry(l); // 1
+			LuaDLL.lua_getglobal(l, "require"); // 2
+			LuaDLL.lua_pushstring(l, ns); // 3
+			int ret = LuaDLL.lua_pcall (l, 1, LuaDLL.LUA_MULTRET, errFunc); // 1
+			if (ret == 0) {
+				LuaDLL.lua_remove (l, errFunc); // 0
+			} else {
+				LuaDLL.lua_settop (l, top); // 0
+			}
+
+			return ret;
+		}
+
 	}
 }

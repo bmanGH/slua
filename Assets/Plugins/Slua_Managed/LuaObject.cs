@@ -85,72 +85,74 @@ namespace SLua
         static protected LuaCSFunction lua_tostring = new LuaCSFunction(ToString);
 		const string DelgateTable = "__LuaDelegate";
 
-		static protected LuaFunction newindex_func;
-		static protected LuaFunction index_func;
+//		static protected LuaFunction newindex_func;
+//		static protected LuaFunction index_func;
 
 		delegate void PushVarDelegate(IntPtr l, object o);
 		static Dictionary<Type, PushVarDelegate> typePushMap = new Dictionary<Type, PushVarDelegate>();
 
 		internal const int VersionNumber = 0x1011;
 
+		public const int TOLUA_NOPEER = LuaIndexes.LUA_REGISTRYINDEX;
+
 		public static void init(IntPtr l)
 		{
-			string newindexfun = @"
-
-local getmetatable=getmetatable
-local rawget=rawget
-local error=error
-local type=type
-local function newindex(ud,k,v)
-    local t=getmetatable(ud)
-    repeat
-        local h=rawget(t,k)
-        if h then
-			if h[2] then
-				h[2](ud,v)
-	            return
-			else
-				error('property '..k..' is read only')
-			end
-        end
-        t=rawget(t,'__parent')
-    until t==nil
-    error('can not find '..k)
-end
-
-return newindex
-";
-
-			string indexfun = @"
-local type=type
-local error=error
-local rawget=rawget
-local getmetatable=getmetatable
-local function index(ud,k)
-    local t=getmetatable(ud)
-    repeat
-        local fun=rawget(t,k)
-        local tp=type(fun)	
-        if tp=='function' then 
-            return fun 
-        elseif tp=='table' then
-			local f=fun[1]
-			if f then
-				return f(ud)
-			else
-				error('property '..k..' is write only')
-			end
-        end
-        t = rawget(t,'__parent')
-    until t==nil
-    error('Can not find '..k)
-end
-
-return index
-";
-			LuaState L = LuaState.get(l);
-			newindex_func = (LuaFunction)L.doString(newindexfun);
-			index_func = (LuaFunction)L.doString(indexfun);
+//			string newindexfun = @"
+//
+//local getmetatable=getmetatable
+//local rawget=rawget
+//local error=error
+//local type=type
+//local function newindex(ud,k,v)
+//    local t=getmetatable(ud)
+//    repeat
+//        local h=rawget(t,k)
+//        if h then
+//			if h[2] then
+//				h[2](ud,v)
+//	            return
+//			else
+//				error('property '..k..' is read only')
+//			end
+//        end
+//        t=rawget(t,'__parent')
+//    until t==nil
+//    error('can not find '..k)
+//end
+//
+//return newindex
+//";
+//
+//			string indexfun = @"
+//local type=type
+//local error=error
+//local rawget=rawget
+//local getmetatable=getmetatable
+//local function index(ud,k)
+//    local t=getmetatable(ud)
+//    repeat
+//        local fun=rawget(t,k)
+//        local tp=type(fun)	
+//        if tp=='function' then 
+//            return fun 
+//        elseif tp=='table' then
+//			local f=fun[1]
+//			if f then
+//				return f(ud)
+//			else
+//				error('property '..k..' is write only')
+//			end
+//        end
+//        t = rawget(t,'__parent')
+//    until t==nil
+//    error('Can not find '..k)
+//end
+//
+//return index
+//";
+//			LuaState L = LuaState.get(l);
+//			newindex_func = (LuaFunction)L.doString(newindexfun);
+//			index_func = (LuaFunction)L.doString(indexfun);
 
 			// object method
 			LuaDLL.lua_createtable(l, 0, 4);
@@ -590,10 +592,12 @@ return index
 			LuaDLL.lua_pushstring(l, ObjectCache.getAQName(self));
 			LuaDLL.lua_setfield(l, -3, "__fullname");
 
-			index_func.push(l);
+//			index_func.push(l);
+			LuaDLL.lua_pushcfunction(l, index);
 			LuaDLL.lua_setfield(l, -2, "__index");
 
-			newindex_func.push(l);
+//			newindex_func.push(l);
+			LuaDLL.lua_pushcfunction(l, newindex);
 			LuaDLL.lua_setfield(l, -2, "__newindex");
 
 			if (con == null) con = noConstructor;
@@ -617,10 +621,12 @@ return index
 			LuaDLL.lua_rawset(l, -3);
 
 			// for instance 
-			index_func.push(l);
+//			index_func.push(l);
+			LuaDLL.lua_pushcfunction(l, index);
 			LuaDLL.lua_setfield(l, -2, "__index");
 
-			newindex_func.push(l);
+//			newindex_func.push(l);
+			LuaDLL.lua_pushcfunction(l, newindex);
 			LuaDLL.lua_setfield(l, -2, "__newindex");
 
 			pushValue(l, lua_add);
@@ -1398,6 +1404,182 @@ return index
 		{
 			LuaDLL.lua_pushstring (l, "__fullname");
 			LuaDLL.lua_rawget (l, -2);
+			return 1;
+		}
+
+		static protected void storeToPeer (IntPtr l, int p)
+		{
+#if LUA_5_3
+			LuaDLL.lua_getuservalue(l, p);				// stack: t, k, v, env
+#else
+			LuaDLL.lua_getfenv(l, p);					// stack: t, k, v, env
+#endif
+			if (LuaDLL.lua_rawequal(l, -1, TOLUA_NOPEER) == 1)
+			{
+				LuaDLL.lua_pop(l, 1);					// stack: t, k, v
+				LuaDLL.lua_newtable(l);                 // stack: t, k, v, t
+				LuaDLL.lua_pushvalue(l, -1);            // stack: t, k, v, t, t        
+#if LUA_5_3
+				LuaDLL.lua_setuservalue(l, p);			// stack: t, k, v, t
+#else
+				LuaDLL.lua_setfenv(l, p);               // stack: t, k, v, t
+#endif
+			};
+
+			LuaDLL.lua_insert(l, -3);					// stack: t, env, k, v
+			LuaDLL.lua_settable(l, -3);					// stack: t, env
+			LuaDLL.lua_pop(l, 1);						// stack: t
+		}
+
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		static public int newindex(IntPtr l)
+		{
+			LuaTypes t = LuaDLL.lua_type(l, 1);
+			if (t == LuaTypes.LUA_TUSERDATA)
+			{
+#if LUA_5_3
+				LuaDLL.lua_getuservalue(l, 1);
+#else
+				LuaDLL.lua_getfenv(l, 1);
+#endif
+				if (LuaDLL.lua_rawequal(l, -1, TOLUA_NOPEER) != 1) 
+				{                
+					if (LuaDLL.lua_istable(l, -1))                       // stack: t k v env 
+					{       
+						LuaDLL.lua_pushvalue(l, 2);                        // stack: t k v env k
+						LuaDLL.lua_rawget(l, -2);                          // stack: t k v env value        
+
+						if (!LuaDLL.lua_isnil(l, -1))
+						{                    
+							LuaDLL.lua_pop(l, 1);
+							LuaDLL.lua_insert(l, -3);
+							LuaDLL.lua_rawset(l, -3);
+							return 0;
+						}
+
+						LuaDLL.lua_pop(l, 1);
+					}              
+				}
+
+				LuaDLL.lua_settop(l, 3);
+
+				LuaDLL.lua_getmetatable(l, 1);
+				while (LuaDLL.lua_istable(l, -1))                			// stack: t k v mt
+				{        	
+					LuaDLL.lua_pushvalue (l, 2);					// stack: t k v mt k
+					LuaDLL.lua_rawget(l, -2);						// stack: t k v mt get_set_t
+
+					if (LuaDLL.lua_istable (l, -1)) {
+						LuaDLL.lua_pushinteger (l, 2);				// stack: t k v mt get_set_t i
+						LuaDLL.lua_rawget (l, -2);					// stack: t k v mt get_set_t set
+
+						if (LuaDLL.lua_isfunction (l, -1)) {
+							LuaDLL.lua_pushvalue (l, 1);			// stack: t k v mt get_set_t set t
+							LuaDLL.lua_pushvalue (l, 3);			// stack: t k v mt get_set_t set t v
+							LuaDLL.lua_call (l, 2, 0);
+							return 0;
+						} else {
+							Logger.LogError(string.Format("property {0} is read only", LuaDLL.lua_tostring(l, 2)));
+							return 0;
+						}
+
+//						LuaDLL.lua_pop (l, 1);
+					}
+
+					LuaDLL.lua_pop (l, 1);							// stack: t k v mt
+
+					LuaDLL.lua_pushstring (l, "__parent");			// stack: t k v mt k2
+					LuaDLL.lua_rawget (l, -2);						// stack: t k v mt parent_mt
+					LuaDLL.lua_remove(l, -2);						// stack: t k v parent_mt
+				}
+
+				LuaDLL.lua_settop(l, 3);                                       // stack: t k v
+
+//				int* udata = (int*)LuaDLL.lua_touserdata(l, 1);
+//				if (*udata == 0) // LUA_NULL_USERDATA
+//				{
+//					Logger.LogError(string.Format("attemp to index {0} on a nil value", LuaDLL.lua_tostring(l, 2)));
+//					return 0;
+//				}
+
+				storeToPeer(l, 1);
+			}
+
+			return 0;
+		}
+
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		static public int index(IntPtr l)
+		{
+			LuaTypes t = LuaDLL.lua_type(l, 1);
+			if (t == LuaTypes.LUA_TUSERDATA)
+			{    	
+#if LUA_5_3
+				LuaDLL.lua_getuservalue(l, 1);
+#else
+				LuaDLL.lua_getfenv(l, 1);
+#endif
+				if (LuaDLL.lua_rawequal(l, -1, TOLUA_NOPEER) != 1)     // stack: t k env
+				{
+					if (LuaDLL.lua_istable(l, -1))                       // stack: t k env
+					{      
+						LuaDLL.lua_pushvalue(l, 2); 				// stack: t k env k
+						LuaDLL.lua_rawget(l, -2);					// stack: t k env v
+
+						if (!LuaDLL.lua_isnil(l, -1))
+						{                    
+							return 1;
+						}
+
+						LuaDLL.lua_pop(l, 1);
+					}        
+				};
+
+				LuaDLL.lua_settop(l, 2);                     // stack: t k  	
+
+				LuaDLL.lua_getmetatable(l, 1);
+				while (LuaDLL.lua_istable(l, -1)) 			// stack: t k mt
+				{
+					LuaDLL.lua_pushvalue (l, 2);					// stack: t k mt k
+					LuaDLL.lua_rawget(l, -2);						// stack: t k mt v
+
+					if (LuaDLL.lua_isfunction (l, -1)) {
+						return 1;
+					} else if (LuaDLL.lua_istable (l, -1)) {
+						LuaDLL.lua_pushinteger (l, 1);				// stack: t k mt get_set_t i
+						LuaDLL.lua_rawget (l, -2);					// stack: t k mt get_set_t get
+
+						if (LuaDLL.lua_isfunction (l, -1)) {
+							LuaDLL.lua_pushvalue (l, 1);			// stack: t k v mt get_set_t get t
+							LuaDLL.lua_call (l, 1, 1);
+							return 1;
+						} else {
+							Logger.LogError(string.Format("property {0} is write only", LuaDLL.lua_tostring(l, 2)));
+							LuaDLL.lua_pushnil(l);
+							return 1;
+						}
+
+//						LuaDLL.lua_pop (l, 1);
+					}
+
+					LuaDLL.lua_pop (l, 1);							// stack: t k mt
+
+					LuaDLL.lua_pushstring (l, "__parent");			// stack: t k mt k2
+					LuaDLL.lua_rawget (l, -2);						// stack: t k mt parent_mt
+					LuaDLL.lua_remove(l, -2);						// stack: t k parent_mt
+				}
+
+				LuaDLL.lua_settop(l, 2);
+
+//				int* udata = (int*)LuaDLL.lua_touserdata(l, 1);
+//				if (*udata == 0) // LUA_NULL_USERDATA
+//				{
+//					Logger.LogError(string.Format("attemp to index {0} on a nil value", LuaDLL.lua_tostring(l, 2)));
+//					return 0;
+//				}  
+			}
+
+			LuaDLL.lua_pushnil(l);
 			return 1;
 		}
 

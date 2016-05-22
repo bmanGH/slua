@@ -44,7 +44,7 @@ namespace SLua{
 
 		public EOL eol = EOL.Native;
 		public bool exportExtensionMethod = true;
-		public string UnityEngineGeneratePath = "Assets/Slua/LuaObject/";
+		public string UnityEngineGeneratePath = "Assets/Src/Common/LuaBinding/Generate/";
 
 		public int debugPort=10240;
 		public string debugIP="0.0.0.0";
@@ -54,12 +54,12 @@ namespace SLua{
 			get{
 #if !SLUA_STANDALONE
 				if(_instance == null){
-					_instance = Resources.Load<SLuaSetting>("setting");
+					_instance = Resources.Load<SLuaSetting>("slua_setting");
 
 #if UNITY_EDITOR
 					if(_instance == null){
 						_instance =  SLuaSetting.CreateInstance<SLuaSetting>();
-						AssetDatabase.CreateAsset(_instance,"Assets/Slua/Resources/setting.asset");
+						AssetDatabase.CreateAsset(_instance,"Assets/Resources/slua_setting.asset");
 					}
 #endif
 

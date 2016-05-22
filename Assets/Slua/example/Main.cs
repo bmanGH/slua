@@ -7,7 +7,7 @@ using System.Collections.Generic;
 public class Main : MonoBehaviour
 {
 
-	LuaSvr l;
+	//LuaSvr l;
 	public Text logText;
 	int progress=0;
 	// Use this for initialization
@@ -19,8 +19,8 @@ public class Main : MonoBehaviour
 		Application.RegisterLogCallback(this.log);
 #endif
 
-		l = new LuaSvr();
-		l.init(tick,complete,LuaSvrFlag.LSF_DEBUG);
+		//l = new LuaSvr();
+		//l.init(tick,complete,LuaSvrFlag.LSF_DEBUG);
 	}
 
 	void log(string cond, string trace, LogType lt)
@@ -36,14 +36,14 @@ public class Main : MonoBehaviour
 
 	void complete()
 	{
-		l.start("main");
-		object o = l.luaState.getFunction("foo").call(1, 2, 3);
-		object[] array = (object[])o;
-		for (int n = 0; n < array.Length; n++)
-			Debug.Log(array[n]);
+		//l.start("main");
+		//object o = l.luaState.getFunction("foo").call(1, 2, 3);
+		//object[] array = (object[])o;
+		//for (int n = 0; n < array.Length; n++)
+		//	Debug.Log(array[n]);
 
-		string s = (string)l.luaState.getFunction("str").call(new object[0]);
-		Debug.Log(s);
+		//string s = (string)l.luaState.getFunction("str").call(new object[0]);
+		//Debug.Log(s);
 	}
 
 	void OnGUI()

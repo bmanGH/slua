@@ -42,6 +42,7 @@ namespace LuaInterface
 
     public enum LuaThreadStatus : int
     {
+		LUA_THREAD_END = 0,
         LUA_YIELD = 1,
         LUA_ERRRUN = 2,
         LUA_ERRSYNTAX = 3,
@@ -53,11 +54,11 @@ namespace LuaInterface
     {
 #if LUA_5_3
         // for lua5.3
-        public static int LUA_REGISTRYINDEX = -1000000 - 1000;
+        public const int LUA_REGISTRYINDEX = -1000000 - 1000;
 #else
         // for lua5.1 or luajit
-        public static int LUA_REGISTRYINDEX = -10000;
-        public static int LUA_GLOBALSINDEX = -10002;
+        public const int LUA_REGISTRYINDEX = -10000;
+        public const int LUA_GLOBALSINDEX = -10002;
 #endif
     }
 
@@ -86,13 +87,47 @@ namespace LuaInterface
 #else
         const string LUADLL = "slua";
 #endif
+		//pdc
+		[DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		public static extern int luaopen_protobuf_c(IntPtr luaState);
+
+		//lpeg
+		[DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		public static extern int luaopen_lpeg(IntPtr luaState);
+
+		//cjson
+		[DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		public static extern int luaopen_cjson(IntPtr luaState);
+
+		//lua socket
+		[DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		public static extern int luaopen_socket_core(IntPtr luaState);
+
+		//lua socket mime
+		[DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		public static extern int luaopen_mime_core(IntPtr luaState);
+
+		//sproto
+		[DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		public static extern int luaopen_sproto_core(IntPtr luaState);
+
+		//sqlite
+		[DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		public static extern int luaopen_lsqlite3(IntPtr luaState);
 
         [DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern void luaS_openextlibs(IntPtr L);
 
         // Thread Funcs
         [DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
-        public static extern int lua_tothread(IntPtr L, int index);
+		public static extern IntPtr lua_tothread(IntPtr L, int index);
         [DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern void lua_xmove(IntPtr from, IntPtr to, int n);
 
@@ -318,6 +353,11 @@ namespace LuaInterface
 			return lua_compare(luaState, index1, index2, 0);
 		}
 
+		[DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
+		public static extern void lua_setuservalue(IntPtr luaState, int p);
+
+		[DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
+		public static extern int lua_getuservalue(IntPtr luaState, int p);
 #else
         [DllImport(LUADLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern int lua_resume(IntPtr L, int narg);

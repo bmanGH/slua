@@ -64,7 +64,7 @@ namespace SLua
 			return null;
 		}
 
-		class ObjSlot
+		public class ObjSlot
 		{
 			public int freeslot;
 			public object v;
@@ -75,8 +75,22 @@ namespace SLua
 			}
 		}
 
-#if SPEED_FREELIST
-		class FreeList : List<ObjSlot>
+        public class ObjEqualityComparer : IEqualityComparer<object>
+        {
+            public new bool Equals(object x, object y)
+            {
+
+                return ReferenceEquals(x, y);
+            }
+
+            public int GetHashCode(object obj)
+            {
+                return RuntimeHelpers.GetHashCode(obj);
+            }
+        }
+
+//#if SPEED_FREELIST
+        public class FreeList : List<ObjSlot>
 		{
 			public FreeList()
 			{
@@ -134,61 +148,44 @@ namespace SLua
 				this[i].v = o;
 			}
 		}
-#else
+//#else
+//		public class FreeList : Dictionary<int, object>
+//		{
+//			private int id = 1;
+//			public int add(object o)
+//			{
+//				Add(id, o);
+//				return id++;
+//			}
+//
+//			public void del(int i)
+//			{
+//				this.Remove(i);
+//			}
+//
+//			public bool get(int i, out object o)
+//			{
+//				return TryGetValue(i, out o);
+//			}
+//
+//			public object get(int i)
+//			{
+//				object o;
+//				if (TryGetValue(i, out o))
+//					return o;
+//				return null;
+//			}
+//
+//			public void set(int i, object o)
+//			{
+//				this[i] = o;
+//			}
+//		}
+//#endif
 
-		class FreeList : Dictionary<int, object>
-		{
-			private int id = 1;
-			public int add(object o)
-			{
-				Add(id, o);
-				return id++;
-			}
-
-			public void del(int i)
-			{
-				this.Remove(i);
-			}
-
-			public bool get(int i, out object o)
-			{
-				return TryGetValue(i, out o);
-			}
-
-			public object get(int i)
-			{
-				object o;
-				if (TryGetValue(i, out o))
-					return o;
-				return null;
-			}
-
-			public void set(int i, object o)
-			{
-				this[i] = o;
-			}
-		}
-
-#endif
-
-		FreeList cache = new FreeList();
-        public class ObjEqualityComparer : IEqualityComparer<object>
-        {
-            public new bool Equals(object x, object y)
-            {
-
-                return ReferenceEquals(x, y);
-            }
-
-            public int GetHashCode(object obj)
-            {
-                return RuntimeHelpers.GetHashCode(obj);
-            }
-        }
-
+		public FreeList cache = new FreeList();
 		Dictionary<object, int> objMap = new Dictionary<object, int>(new ObjEqualityComparer());
 		int udCacheRef = 0;
-
 
 		public ObjectCache(IntPtr l)
 		{
@@ -200,14 +197,12 @@ namespace SLua
 			udCacheRef = LuaDLL.luaL_ref(l, LuaIndexes.LUA_REGISTRYINDEX);
 		}
 
-
 		static public void clear()
 		{
-
 			oldl = IntPtr.Zero;
 			oldoc = null;
-
 		}
+
 		internal static void del(IntPtr l)
 		{
 			multiState.Remove(l);
@@ -258,7 +253,6 @@ namespace SLua
 
 		internal object get(IntPtr l, int p)
 		{
-
 			int index = LuaDLL.luaS_rawnetobj(l, p);
 			object o;
 			if (index != -1 && cache.get(index, out o))
@@ -266,18 +260,15 @@ namespace SLua
 				return o;
 			}
 			return null;
-
 		}
 
 		internal void setBack(IntPtr l, int p, object o)
 		{
-
 			int index = LuaDLL.luaS_rawnetobj(l, p);
 			if (index != -1)
 			{
 				cache.set(index, o);
 			}
-
 		}
 
 		internal void push(IntPtr l, object o)
@@ -309,16 +300,22 @@ namespace SLua
 			}
 
 			index = add(o);
-#if SLUA_CHECK_REFLECTION
+//#if SLUA_CHECK_REFLECTION
 			int isReflect = LuaDLL.luaS_pushobject(l, index, isArray ? "LuaArray" : getAQName(o), gco, udCacheRef);
 			if (isReflect != 0 && checkReflect && !isArray)
 			{
 				Logger.LogWarning(string.Format("{0} not exported, using reflection instead", o.ToString()));
 			}
-#else
-			LuaDLL.luaS_pushobject(l, index, isArray?"LuaArray":getAQName(o), gco, udCacheRef);
-#endif
+//#else
+//			LuaDLL.luaS_pushobject(l, index, isArray?"LuaArray":getAQName(o), gco, udCacheRef);
+//#endif
 
+			LuaDLL.lua_pushvalue(l, LuaObject.TOLUA_NOPEER);
+#if LUA_5_3
+			LuaDLL.lua_setuservalue(l, -2);
+#else
+			LuaDLL.lua_setfenv(l, -2);
+#endif
 		}
 
 		static Dictionary<Type, string> aqnameMap = new Dictionary<Type, string>();
@@ -340,11 +337,11 @@ namespace SLua
 			return name;
 		}
 
-
-		bool isGcObject(object obj)
+		public bool isGcObject(object obj)
 		{
 			return obj.GetType().IsValueType == false;
 		}
+
 	}
 }
 

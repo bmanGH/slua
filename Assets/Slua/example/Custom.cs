@@ -11,17 +11,17 @@ public class Custom : MonoBehaviour
 
 	int v = 520;
 	static string vs = "xiaoming & hanmeimei";
-	LuaSvr l;
+	//LuaSvr l;
 	static Custom c;
-	void Start()
-	{
-		c = this;
-		l = new LuaSvr();
-		l.init(null, () =>
-		{
-			l.start("custom");
-		});
-	}
+	//void Start()
+	//{
+	//	c = this;
+	//	l = new LuaSvr();
+	//	l.init(null, () =>
+	//	{
+	//		l.start("custom");
+	//	});
+	//}
 
 	// Update is called once per frame
 	void Update()
