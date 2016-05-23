@@ -967,7 +967,18 @@ namespace SLua
 				{
 					string dt = SimpleType(tt[n]);
 					ret+=string.Format("				{0} a{1};",dt,n)+NewLine;
-					ret+=string.Format("				checkType(l,{0},out a{1});",n+2,n)+NewLine;
+
+					if (tt[n].IsEnum)
+						ret+=string.Format("				checkEnum(l,{0},out a{1});",n+2,n)+NewLine;
+					else if (tt[n].BaseType == typeof(System.MulticastDelegate))
+						ret+=string.Format("				LuaDelegation.checkDelegate(l,{0},out a{1});",n+2,n)+NewLine;
+					else if (IsValueType(tt[n]))
+						ret+=string.Format("				checkValueType(l,{0},out a{1});",n+2,n)+NewLine;
+					else if (tt[n].IsArray)
+						ret+=string.Format("				checkArray(l,{0},out a{1});",n+2,n)+NewLine;
+					else
+						ret+=string.Format("				checkType(l,{0},out a{1});",n+2,n)+NewLine;
+					
 					args+=("a"+n);
 					if (n < tt.Length - 1) args += ",";
 				}
