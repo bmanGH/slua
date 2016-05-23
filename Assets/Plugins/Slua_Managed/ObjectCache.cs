@@ -21,8 +21,6 @@
 // THE SOFTWARE.
 
 
-using System.Runtime.CompilerServices;
-
 namespace SLua
 {
 	using System;
@@ -75,22 +73,21 @@ namespace SLua
 			}
 		}
 
-        public class ObjEqualityComparer : IEqualityComparer<object>
-        {
-            public new bool Equals(object x, object y)
-            {
+		public class ObjEqualityComparer : IEqualityComparer<object>
+		{
+			public new bool Equals(object x, object y)
+			{
+				return ReferenceEquals(x, y);
+			}
 
-                return ReferenceEquals(x, y);
-            }
-
-            public int GetHashCode(object obj)
-            {
-                return RuntimeHelpers.GetHashCode(obj);
-            }
-        }
+			public int GetHashCode(object obj)
+			{
+				return RuntimeHelpers.GetHashCode(obj);
+			}
+		}
 
 //#if SPEED_FREELIST
-        public class FreeList : List<ObjSlot>
+		public class FreeList : List<ObjSlot>
 		{
 			public FreeList()
 			{
@@ -184,8 +181,8 @@ namespace SLua
 //#endif
 
 		public FreeList cache = new FreeList();
-		Dictionary<object, int> objMap = new Dictionary<object, int>(new ObjEqualityComparer());
-		int udCacheRef = 0;
+		public Dictionary<object, int> objMap = new Dictionary<object, int>(new ObjEqualityComparer());
+		internal int udCacheRef = 0;
 
 		public ObjectCache(IntPtr l)
 		{
@@ -318,14 +315,20 @@ namespace SLua
 #endif
 		}
 
+		public bool isGcObject(object obj)
+		{
+			return obj.GetType().IsValueType == false;
+		}
+
 		static Dictionary<Type, string> aqnameMap = new Dictionary<Type, string>();
-		static string getAQName(object o)
+
+		public static string getAQName(object o)
 		{
 			Type t = o.GetType();
 			return getAQName(t);
 		}
 
-		internal static string getAQName(Type t)
+		public static string getAQName(Type t)
 		{
 			string name;
 			if (aqnameMap.TryGetValue(t, out name))
@@ -335,11 +338,6 @@ namespace SLua
 			name = t.AssemblyQualifiedName;
 			aqnameMap[t] = name;
 			return name;
-		}
-
-		public bool isGcObject(object obj)
-		{
-			return obj.GetType().IsValueType == false;
 		}
 
 	}

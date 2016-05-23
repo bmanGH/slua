@@ -995,21 +995,7 @@ namespace SLua
 					&& matchType(l, from + 9, t10);
 		}
 
-        public static bool matchType(IntPtr l, int total, int from, params Type[] t)
-        {
-            if (total - from + 1 != t.Length)
-                return false;
-
-            for (int i = 0; i < t.Length; ++i)
-            {
-                if (!matchType(l, from + i, t[i]))
-                    return false;
-            }
-
-            return true;
-        }
-
-        public static bool matchType(IntPtr l, int total, int from, ParameterInfo[] pars)
+		public static bool matchType(IntPtr l, int total, int from, ParameterInfo[] pars)
 		{
 			if (total - from + 1 != pars.Length)
 				return false;
@@ -1435,7 +1421,7 @@ namespace SLua
 		static public int newindex(IntPtr l)
 		{
 			LuaTypes t = LuaDLL.lua_type(l, 1);
-			if (t == LuaTypes.LUA_TUSERDATA)
+			if (t == LuaTypes.LUA_TUSERDATA) // instance userdata (peer able)
 			{
 #if LUA_5_3
 				LuaDLL.lua_getuservalue(l, 1);
@@ -1479,7 +1465,7 @@ namespace SLua
 							LuaDLL.lua_call (l, 2, 0);
 							return 0;
 						} else {
-							Logger.LogError(string.Format("property {0} is read only", LuaDLL.lua_tostring(l, 2)));
+							Logger.LogError(string.Format("property \"{0}\" is read only", LuaDLL.lua_tostring(l, 2)));
 							return 0;
 						}
 
@@ -1503,6 +1489,40 @@ namespace SLua
 //				}
 
 				storeToPeer(l, 1);
+			} else if (t == LuaTypes.LUA_TTABLE) { // class table (no peer)
+				LuaDLL.lua_getmetatable(l, 1);
+				while (LuaDLL.lua_istable(l, -1))                			// stack: t k v mt
+				{        	
+					LuaDLL.lua_pushvalue (l, 2);					// stack: t k v mt k
+					LuaDLL.lua_rawget(l, -2);						// stack: t k v mt get_set_t
+
+					if (LuaDLL.lua_istable (l, -1)) {
+						LuaDLL.lua_pushinteger (l, 2);				// stack: t k v mt get_set_t i
+						LuaDLL.lua_rawget (l, -2);					// stack: t k v mt get_set_t set
+
+						if (LuaDLL.lua_isfunction (l, -1)) {
+							LuaDLL.lua_pushvalue (l, 1);			// stack: t k v mt get_set_t set t
+							LuaDLL.lua_pushvalue (l, 3);			// stack: t k v mt get_set_t set t v
+							LuaDLL.lua_call (l, 2, 0);
+							return 0;
+						} else {
+							Logger.LogError(string.Format("property \"{0}\" is read only", LuaDLL.lua_tostring(l, 2)));
+							return 0;
+						}
+
+						//						LuaDLL.lua_pop (l, 1);
+					}
+
+					LuaDLL.lua_pop (l, 1);							// stack: t k v mt
+
+					LuaDLL.lua_pushstring (l, "__parent");			// stack: t k v mt k2
+					LuaDLL.lua_rawget (l, -2);						// stack: t k v mt parent_mt
+					LuaDLL.lua_remove(l, -2);						// stack: t k v parent_mt
+				}
+
+				LuaDLL.lua_settop(l, 3);   
+
+				Logger.LogError(string.Format("class has no \"{0}\" in newindex meta function", LuaDLL.lua_tostring(l, 2)));
 			}
 
 			return 0;
@@ -1512,7 +1532,7 @@ namespace SLua
 		static public int index(IntPtr l)
 		{
 			LuaTypes t = LuaDLL.lua_type(l, 1);
-			if (t == LuaTypes.LUA_TUSERDATA)
+			if (t == LuaTypes.LUA_TUSERDATA) // instance userdata (peer able)
 			{    	
 #if LUA_5_3
 				LuaDLL.lua_getuservalue(l, 1);
@@ -1554,7 +1574,7 @@ namespace SLua
 							LuaDLL.lua_call (l, 1, 1);
 							return 1;
 						} else {
-							Logger.LogError(string.Format("property {0} is write only", LuaDLL.lua_tostring(l, 2)));
+							Logger.LogError(string.Format("property \"{0}\" is write only", LuaDLL.lua_tostring(l, 2)));
 							LuaDLL.lua_pushnil(l);
 							return 1;
 						}
@@ -1577,6 +1597,42 @@ namespace SLua
 //					Logger.LogError(string.Format("attemp to index {0} on a nil value", LuaDLL.lua_tostring(l, 2)));
 //					return 0;
 //				}  
+			} else if (t == LuaTypes.LUA_TTABLE) { // class table (no peer)
+				LuaDLL.lua_getmetatable(l, 1);
+				while (LuaDLL.lua_istable(l, -1)) 			// stack: t k mt
+				{
+					LuaDLL.lua_pushvalue (l, 2);					// stack: t k mt k
+					LuaDLL.lua_rawget(l, -2);						// stack: t k mt v
+
+					if (LuaDLL.lua_isfunction (l, -1)) {
+						return 1;
+					} else if (LuaDLL.lua_istable (l, -1)) {
+						LuaDLL.lua_pushinteger (l, 1);				// stack: t k mt get_set_t i
+						LuaDLL.lua_rawget (l, -2);					// stack: t k mt get_set_t get
+
+						if (LuaDLL.lua_isfunction (l, -1)) {
+							LuaDLL.lua_pushvalue (l, 1);			// stack: t k v mt get_set_t get t
+							LuaDLL.lua_call (l, 1, 1);
+							return 1;
+						} else {
+							Logger.LogError(string.Format("property \"{0}\" is write only", LuaDLL.lua_tostring(l, 2)));
+							LuaDLL.lua_pushnil(l);
+							return 1;
+						}
+
+						//						LuaDLL.lua_pop (l, 1);
+					}
+
+					LuaDLL.lua_pop (l, 1);							// stack: t k mt
+
+					LuaDLL.lua_pushstring (l, "__parent");			// stack: t k mt k2
+					LuaDLL.lua_rawget (l, -2);						// stack: t k mt parent_mt
+					LuaDLL.lua_remove(l, -2);						// stack: t k parent_mt
+				}
+
+				LuaDLL.lua_settop(l, 2);
+
+				Logger.LogError(string.Format("class has no \"{0}\" in index meta function", LuaDLL.lua_tostring(l, 2)));
 			}
 
 			LuaDLL.lua_pushnil(l);

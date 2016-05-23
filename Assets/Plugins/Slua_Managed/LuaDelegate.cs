@@ -20,61 +20,43 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-using System.Collections;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
-#if !SLUA_STANDALONE
-using UnityEngine;
-#endif
 
-namespace SLua{
-	public enum EOL{
-		Native,
-		CRLF,
-		CR,
-		LF,
-	}
+namespace SLua
+{
+	using System;
+	using System.Collections.Generic;
+	using System.Collections;
+	using LuaInterface;
+	using System.IO;
+	using System.Text;
+	using System.Runtime.InteropServices;
+	#if !SLUA_STANDALONE
+	using UnityEngine;
+	#endif
 
-	public class SLuaSetting 
-#if !SLUA_STANDALONE
-        : ScriptableObject
-#endif
-    {
+	public class LuaDelegate : LuaFunction
+	{
+		public object d;
 
-		public EOL eol = EOL.Native;
-		public bool exportExtensionMethod = true;
-		public string UnityEngineGeneratePath = "Assets/Src/Common/LuaBinding/Generate/";
+		public LuaDelegate(IntPtr l, int r)
+			: base(l, r)
+		{
+		}
 
-		public int debugPort=10240;
-		public string debugIP="0.0.0.0";
-
-		private static SLuaSetting _instance=null;
-		public static SLuaSetting Instance{
-			get{
-#if !SLUA_STANDALONE
-				if(_instance == null){
-					_instance = Resources.Load<SLuaSetting>("slua_setting");
-
-#if UNITY_EDITOR
-					if(_instance == null){
-						_instance =  SLuaSetting.CreateInstance<SLuaSetting>();
-						AssetDatabase.CreateAsset(_instance,"Assets/Resources/slua_setting.asset");
-					}
-#endif
-
-				}
-#endif
-				return _instance;
+		public override void Dispose(bool disposeManagedResources)
+		{
+			if (valueref != 0)
+			{
+				LuaState.UnRefAction act = (IntPtr l, int r) =>
+				{
+					LuaObject.removeDelgate(l, r);
+					LuaDLL.lua_unref(l, r);
+				};
+				state.gcRef(act, valueref);
+				valueref = 0;
 			}
-		}
 
-#if UNITY_EDITOR && !SLUA_STANDALONE
-		[MenuItem("SLua/Setting")]
-		public static void Open(){
-			Selection.activeObject = Instance;
 		}
-#endif
 
 	}
 

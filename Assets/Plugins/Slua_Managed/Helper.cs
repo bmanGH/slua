@@ -281,6 +281,37 @@ return Class
 			}
 		}
 
+		[MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
+		static public int Is(IntPtr l)
+		{
+			try
+			{
+				Type t;
+				if (!checkType (l, 2, out t))
+				{
+					return error(l, "No matched type of param 2");
+				}
+				object o = checkObj(l, 1);
+				if (o == null)
+				{
+					return error(l, "param 1 is null");
+				}
+
+				pushValue(l, true);
+
+				if (t.IsAssignableFrom(o.GetType())) {
+					pushValue(l, true);
+				} else {
+					pushValue(l, false);
+				}
+				return 2;
+			}
+			catch (Exception e)
+			{
+				return error(l, e);
+			}
+		}
+
         [MonoPInvokeCallbackAttribute(typeof(LuaCSFunction))]
         static public int IsNull(IntPtr l)
         {
@@ -342,16 +373,16 @@ return Class
             addMember(l, iter, false);
             addMember(l, ToString, false);
             addMember(l, As, false);
+			addMember(l, Is, false);
 			addMember(l, IsNull, false);
 			addMember(l, MakeArray, false);
-			addMember(l,ToBytes,false);
+			addMember(l, ToBytes,false);
 			addMember(l, "out", get_out, null, false);
 			addMember(l, "version", get_version, null, false);
 
 			LuaFunction func = LuaState.get(l).doString(classfunc) as LuaFunction;
 			func.push(l);
 			LuaDLL.lua_setfield(l, -3, "Class");
-
 
             createTypeMetatable(l, null, typeof(Helper));
         }

@@ -20,14 +20,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-using System.Collections;
-using System.Collections.Generic;
-using System;
-using LuaInterface;
-using System.Reflection;
-using System.Runtime.InteropServices;
+
 namespace SLua
 {
+	
+	using System.Collections;
+	using System.Collections.Generic;
+	using System;
+	using LuaInterface;
+	using System.Reflection;
+	using System.Runtime.InteropServices;
 
 /* https://msdn.microsoft.com/zh-cn/library/s1ax56ch.aspx
  * 
@@ -529,4 +531,5 @@ namespace SLua
 		}
 		#endregion
 	}
+
 }
