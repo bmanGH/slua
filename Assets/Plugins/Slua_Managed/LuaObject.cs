@@ -833,7 +833,7 @@ namespace SLua
 				case LuaTypes.LUA_TUSERDATA:
 					object o = checkObj(l, p);
 					Type ot = o.GetType();
-					return ot == t || ot.IsSubclassOf(t);
+					return ot == t || t.IsAssignableFrom (ot);
 				case LuaTypes.LUA_TSTRING:
 					return t == typeof(string);
 				case LuaTypes.LUA_TBOOLEAN:
