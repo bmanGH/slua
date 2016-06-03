@@ -119,10 +119,6 @@ public class LuaManager : MonoSingleton<LuaManager> {
 		}
 	}
 
-	void Start () {
-		setup ();
-	}
-
 	protected override void OnDestroy () {
 		base.OnDestroy ();
 
