@@ -82,7 +82,6 @@ public class LuaManager : MonoSingleton<LuaManager> {
 		} else {
 			LuaState.loaderDelegate += loaderHandle;
 			LuaState.logDelegate += logHandle;
-			LuaState.errorDelegate += logErrHandle;
 
 			Debug.Log("<LuaManager> lua state get ready");
 			isReady = true;
@@ -105,10 +104,6 @@ public class LuaManager : MonoSingleton<LuaManager> {
 		Debug.Log("<color=green>" + msg + "</color>");
 	}
 
-	protected void logErrHandle (string msg) {
-		Debug.LogError("<color=lime>" + msg + "</color>");
-	}
-
 	public void setup () {
 		shutdown ();
 
@@ -121,7 +116,6 @@ public class LuaManager : MonoSingleton<LuaManager> {
 		if (luaState != null && isReady == true) {
 			LuaState.loaderDelegate -= loaderHandle;
 			LuaState.logDelegate -= logHandle;
-			LuaState.errorDelegate -= logErrHandle;
 
 			luaState.Dispose ();
 			luaState = null;
