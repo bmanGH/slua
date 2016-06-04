@@ -274,12 +274,15 @@ end
 			LuaDLL.lua_pushnumber(L, 2);
 			LuaDLL.lua_call(L, 2, 1);
 			LuaDLL.lua_remove(L, -2);
-			Logger.LogError(LuaDLL.lua_tostring(L, -1));
-			if (errorDelegate != null)
-			{
-				errorDelegate(LuaDLL.lua_tostring(L, -1));
-			}
+			string s = LuaDLL.lua_tostring(L, -1);
 			LuaDLL.lua_pop(L, 1);
+
+			if (errorDelegate != null) {
+				errorDelegate (s);
+			} else {
+				Logger.LogError(s);
+			}
+
 			return 0;
 		}
 
@@ -379,11 +382,13 @@ end
 				LuaDLL.lua_pop(L, 1);
 			}
 			LuaDLL.lua_settop(L, n);
-			Logger.Log(s);
-			if (logDelegate != null)
-			{
-				logDelegate(s);
+
+			if (logDelegate != null) {
+				logDelegate (s);
+			} else {
+				Logger.Log(s);
 			}
+
 			return 0;
 		}
 

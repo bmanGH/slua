@@ -80,14 +80,16 @@ public class LuaManager : MonoSingleton<LuaManager> {
 			Debug.LogError ("<LuaManager> Some function not remove temp value from lua stack, You should fix it");
 			errorReported = LuaDLL.lua_gettop (luaState.L);
 		} else {
-			LuaState.loaderDelegate += LoaderHandle;
+			LuaState.loaderDelegate += loaderHandle;
+			LuaState.logDelegate += logHandle;
+			LuaState.errorDelegate += logErrHandle;
 
 			Debug.Log("<LuaManager> lua state get ready");
 			isReady = true;
 		}
 	}
 
-	protected byte[] LoaderHandle (string fn) {
+	protected byte[] loaderHandle (string fn) {
 		fn = fn.Replace(".", "/");
 		TextAsset asset = Resources.Load(Path.HasExtension (fn) ? scriptRootPath + fn : scriptRootPath + fn + ".lua") as TextAsset;
 		if (asset == null) {
@@ -97,6 +99,14 @@ public class LuaManager : MonoSingleton<LuaManager> {
 				return null;
 		} 
 		return asset.bytes;
+	}
+
+	protected void logHandle (string msg) {
+		Debug.Log("<color=green>" + msg + "</color>");
+	}
+
+	protected void logErrHandle (string msg) {
+		Debug.LogError("<color=lime>" + msg + "</color>");
 	}
 
 	public void setup () {
@@ -109,7 +119,9 @@ public class LuaManager : MonoSingleton<LuaManager> {
 
 	public void shutdown () {
 		if (luaState != null && isReady == true) {
-			LuaState.loaderDelegate -= LoaderHandle;
+			LuaState.loaderDelegate -= loaderHandle;
+			LuaState.logDelegate -= logHandle;
+			LuaState.errorDelegate -= logErrHandle;
 
 			luaState.Dispose ();
 			luaState = null;
