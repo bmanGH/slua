@@ -89,8 +89,8 @@ namespace SLua
             autoRefresh = false;
             Generate();
 			GenerateUI();
-			Custom();
 			Generate3rdDll();
+			Custom();
             autoRefresh = true;
             AssetDatabase.Refresh();
         }
@@ -247,7 +247,7 @@ namespace SLua
 		[MenuItem("SLua/Unity/Clear Unity and UI")]
 		static public void ClearUnity()
 		{
-			clear(new string[] { GenPath+"Unity" });
+			clear(new string[] { GenPath + "Unity" });
 			Debug.Log("Clear Unity & UI complete.");
 		}
 		
@@ -300,7 +300,7 @@ namespace SLua
                     }
                 }
             }
-            catch(Exception){}
+            catch(Exception) {}
 
             // export self-dll
             assembly = Assembly.Load("Assembly-CSharp");
@@ -320,6 +320,9 @@ namespace SLua
 			InvokeEditorMethod<ICustomExportPost>("OnAddCustomClass", ref aCustomExport);
 
 			GenerateBind(exports, "BindCustom", 3, path);
+
+			removeRepeatedFiles(GenPath + "Custom/", GenPath + "Dll/");
+
             if(autoRefresh)
 			    AssetDatabase.Refresh();
 			
@@ -398,6 +401,7 @@ namespace SLua
 					cust.Add(t);
 				}
 			}
+
 			if (cust.Count > 0)
 			{
 				List<Type> exports = new List<Type>();
@@ -406,23 +410,31 @@ namespace SLua
 				{
 					Directory.CreateDirectory(path);
 				}
+
 				foreach (Type t in cust)
 				{
 					if (Generate(t,path))
 						exports.Add(t);
 				}
+
 				GenerateBind(exports, "BindDll", 2, path);
+
+				removeRepeatedFiles(GenPath + "Dll/", GenPath + "Unity/");
+
                 if(autoRefresh)
 				    AssetDatabase.Refresh();
+				
 				Debug.Log("Generate 3rdDll interface finished");
 			}
 		}
+
 		[MenuItem("SLua/3rdDll/Clear")]
 		static public void Clear3rdDll()
 		{
 			clear(new string[] { GenPath + "Dll" });
 			Debug.Log("Clear AssemblyDll complete.");
 		}
+
 		[MenuItem("SLua/Custom/Clear")]
 		static public void ClearCustom()
 		{
@@ -436,6 +448,20 @@ namespace SLua
 			clear(new string[] { Path.GetDirectoryName(GenPath) });
 			Debug.Log("Clear all complete.");
 		}
+
+		static void removeRepeatedFiles (string fromPath, string toPath)
+		{
+			var fromDir = new DirectoryInfo (fromPath);
+			var toDir = new DirectoryInfo (toPath);
+
+			foreach (var fromFile in fromDir.GetFiles()) {
+				foreach (var toFile in toDir.GetFiles()) {
+					if (fromFile.Name == toFile.Name) {
+						File.Delete (fromFile.FullName);
+					}
+				}
+			}
+		}
 		
 		static void clear(string[] paths)
 		{
@@ -447,10 +473,7 @@ namespace SLua
 					AssetDatabase.DeleteAsset(path);
 				}
 			}
-			catch
-			{
-				
-			}
+			catch {}
 			
 			AssetDatabase.Refresh();
 		}
@@ -482,47 +505,6 @@ namespace SLua
 	
 	class CodeGenerator
 	{
-		static List<string> memberFilter = new List<string>
-        {
-            "AnimationClip.averageDuration",
-            "AnimationClip.averageAngularSpeed",
-            "AnimationClip.averageSpeed",
-            "AnimationClip.apparentSpeed",
-            "AnimationClip.isLooping",
-            "AnimationClip.isAnimatorMotion",
-            "AnimationClip.isHumanMotion",
-            "AnimatorOverrideController.PerformOverrideClipListCleanup",
-            "Caching.SetNoBackupFlag",
-            "Caching.ResetNoBackupFlag",
-            "Light.areaSize",
-            "Security.GetChainOfTrustValue",
-            "Texture2D.alphaIsTransparency",
-            "WWW.movie",
-            "WebCamTexture.MarkNonReadable",
-            "WebCamTexture.isReadable",
-            // i don't know why below 2 functions missed in iOS platform
-            "*.OnRebuildRequested",
-            // il2cpp not exixts
-            "Application.ExternalEval",
-            "GameObject.networkView",
-            "Component.networkView",
-            // unity5
-            "AnimatorControllerParameter.name",
-            "Input.IsJoystickPreconfigured",
-            "Resources.LoadAssetAtPath",
-#if UNITY_4_6
-			"Motion.ValidateIfRetargetable",
-			"Motion.averageDuration",
-			"Motion.averageAngularSpeed",
-			"Motion.averageSpeed",
-			"Motion.apparentSpeed",
-			"Motion.isLooping",
-			"Motion.isAnimatorMotion",
-			"Motion.isHumanMotion",
-#endif
-        };
-
-
 		static Dictionary<System.Type,List<MethodInfo>> GenerateExtensionMethodsMap(){
 			Dictionary<Type,List<MethodInfo>> dic = new Dictionary<Type, List<MethodInfo>>();
 			List<string> asems;
@@ -550,30 +532,63 @@ namespace SLua
 				{
 					if (type.IsSealed && !type.IsGenericType && !type.IsNested)
 					{
-						MethodInfo[] methods = type.GetMethods(BindingFlags.Static | BindingFlags.Public);
+						MethodInfo[] methods = type.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly);
 						foreach (MethodInfo method in methods)
 						{
 							if (IsExtensionMethod(method))
 							{
-								Type extendedType = method.GetParameters()[0].ParameterType;
-								if (!dic.ContainsKey(extendedType))
-								{
-									dic.Add(extendedType, new List<MethodInfo>());
+								
+								Type extendedType = null;
+								if (!method.IsGenericMethod) {
+									extendedType = method.GetParameters()[0].ParameterType;
+									if (!dic.ContainsKey(extendedType))
+									{
+										dic.Add(extendedType, new List<MethodInfo>());
+									}
+									dic[extendedType].Add(method);
 								}
-								dic[extendedType].Add(method);
+								else if (IsSimpleGenericExtensionMethod (method, out extendedType)) {
+									if (!dic.ContainsKey(extendedType))
+									{
+										dic.Add(extendedType, new List<MethodInfo>());
+									}
+									dic[extendedType].Add(method);
+								}
+
 							}
 						}
 					}
 				}
 			}
+
 			return dic;
 		}
 
-		static bool IsExtensionMethod(MethodBase method){
-			return method.IsDefined(typeof(System.Runtime.CompilerServices.ExtensionAttribute),false);
+		static bool IsExtensionMethod (MethodBase method){
+			return method.IsDefined(typeof(System.Runtime.CompilerServices.ExtensionAttribute), false);
 		}
 
+		static bool IsSimpleGenericExtensionMethod (MethodBase method, out Type genericType) {
+			MethodInfo mi = method as MethodInfo;
 
+			if (mi.IsDefined(typeof(System.Runtime.CompilerServices.ExtensionAttribute), false) == false || 
+				mi.IsGenericMethod == false) {
+				genericType = null;
+				return false;
+			}
+
+			Type[] genericArgs = mi.GetGenericArguments ();
+			ParameterInfo[] parameters = mi.GetParameters ();
+			if ( genericArgs.Length == 1 && // only one generic argument
+				(parameters[0].ParameterType.IsGenericParameter && genericArgs[0] == parameters[0].ParameterType) && // extension type must same as generic argument type
+				(!mi.ReturnType.IsGenericParameter || genericArgs[0] == mi.ReturnType) ) { // no generic return type or same as generic argument type
+				genericType = genericArgs [0].BaseType;
+				return true;
+			}
+
+			genericType = null;
+			return false;
+		}
 
 		static Dictionary<System.Type,List<MethodInfo>> extensionMethods = new Dictionary<Type, List<MethodInfo>>();
 
@@ -656,7 +671,7 @@ namespace SLua
 				Directory.CreateDirectory(path);
 			}
 			
-			if (!t.IsGenericTypeDefinition && (!IsObsolete(t) && t != typeof(YieldInstruction) && t != typeof(Coroutine))
+			if (!t.IsGenericTypeDefinition && (!IsObsolete(t) && t != typeof(YieldInstruction) /*&& t != typeof(Coroutine)*/)
 			    || (t.BaseType != null && t.BaseType == typeof(System.MulticastDelegate)))
 			{
 				if (t.IsEnum)
@@ -978,7 +993,7 @@ namespace SLua
 						ret+=string.Format("				checkArray(l,{0},out a{1});",n+2,n)+NewLine;
 					else
 						ret+=string.Format("				checkType(l,{0},out a{1});",n+2,n)+NewLine;
-					
+
 					args+=("a"+n);
 					if (n < tt.Length - 1) args += ",";
 				}
@@ -1079,12 +1094,13 @@ namespace SLua
 		// add namespace for extension method
 		void WriteExtraNamespace(StreamWriter file,Type t) {
 			List<MethodInfo> lstMI;
-			HashSet<string> nsset=new HashSet<string>();
-			if(extensionMethods.TryGetValue(t,out lstMI)) {
+			HashSet<string> nsset = new HashSet<string>();
+
+			if(extensionMethods.TryGetValue(t, out lstMI)) {
 				foreach(MethodInfo m in lstMI) {
 					// if not writed
-					if(!string.IsNullOrEmpty(m.ReflectedType.Namespace) && !nsset.Contains(m.ReflectedType.Namespace)) {
-						Write(file,"using {0};",m.ReflectedType.Namespace);
+					if( !string.IsNullOrEmpty(m.ReflectedType.Namespace) && !nsset.Contains(m.ReflectedType.Namespace) ) {
+						Write(file,"using {0};", m.ReflectedType.Namespace);
 						nsset.Add(m.ReflectedType.Namespace);
 					}
 				}
@@ -1108,6 +1124,7 @@ namespace SLua
 					methods.AddRange(extensionMethods[t]);
 				}
 			}
+
 			foreach (MethodInfo mi in methods)
 			{
 				bool instanceFunc;
@@ -1116,14 +1133,16 @@ namespace SLua
 					directfunc.Add(t.FullName + "." + mi.Name, instanceFunc);
 					continue;
 				}
-				
+
+				int i = 0;
 				string fn = writeStatic ? staticName(mi.Name) : mi.Name;
-				if (mi.MemberType == MemberTypes.Method
-				    && !IsObsolete(mi)
-				    && !DontExport(mi)
-				    && !funcname.Contains(fn)
-				    && isUsefullMethod(mi)
-				    && !MemberInFilter(t, mi))
+				if (mi.MemberType == MemberTypes.Method && 
+				    !IsObsolete(mi) && 
+				    !DontExport(mi) && 
+				    !funcname.Contains(fn) && 
+				    isUsefullMethod(mi) && 
+					!(mi.IsGenericMethodDefinition && mi.DeclaringType == t) && // ignore simple generic extension method declaring type
+				    !MemberInFilter(t, mi))
 				{
 					WriteFunctionDec(file, fn);
 					WriteFunctionImpl(file, mi, t, bf);
@@ -1150,10 +1169,9 @@ namespace SLua
 			return name + "_s";
 		}
 		
-		
 		bool MemberInFilter(Type t, MemberInfo mi)
 		{
-			return memberFilter.Contains(t.Name + "." + mi.Name) || memberFilter.Contains("*." + mi.Name);
+			return CustomExport.MemberFilterList.Contains(t.Name + "." + mi.Name) || CustomExport.MemberFilterList.Contains("*." + mi.Name);
 		}
 		
 		bool IsObsolete(MemberInfo t)
@@ -1789,16 +1807,29 @@ namespace SLua
 		
 		bool isUsefullMethod(MethodInfo method)
 		{
-			if (method.Name != "GetType" && method.Name != "GetHashCode" && method.Name != "Equals" &&
-			    method.Name != "ToString" && method.Name != "Clone" &&
-			    method.Name != "GetEnumerator" && method.Name != "CopyTo" &&
-			    method.Name != "op_Implicit" && method.Name != "op_Explicit" &&
+			Type unused = null;
+			if ( !IsObsolete(method) && 
+
+				// don't support generic method but simple generic extension method
+				( (!method.ReturnType.ContainsGenericParameters && !method.ContainsGenericParameters) || IsSimpleGenericExtensionMethod(method, out unused) ) &&
+				
+				method.Name != "GetType" && 
+				method.Name != "GetHashCode" && 
+				method.Name != "Equals" &&
+			    method.Name != "ToString" && 
+				method.Name != "Clone" &&
+			    method.Name != "GetEnumerator" && 
+				method.Name != "CopyTo" &&
+
+			    method.Name != "op_Implicit" && 
+				method.Name != "op_Explicit" &&
+
 			    !method.Name.StartsWith("get_", StringComparison.Ordinal) &&
 			    !method.Name.StartsWith("set_", StringComparison.Ordinal) &&
-			    !method.Name.StartsWith("add_", StringComparison.Ordinal) &&
-			    !IsObsolete(method) && !method.IsGenericMethod &&
-				method.ToString() != "Int32 Clamp(Int32, Int32, Int32)" &&
-			    !method.Name.StartsWith("remove_", StringComparison.Ordinal))
+				!method.Name.StartsWith("add_", StringComparison.Ordinal) &&
+				!method.Name.StartsWith("remove_", StringComparison.Ordinal) &&
+
+				method.ToString() != "Int32 Clamp(Int32, Int32, Int32)" )
 			{
 				return true;
 			}
@@ -1809,21 +1840,20 @@ namespace SLua
 		{
 			WriteFunctionAttr(file);
 			Write(file, "static public int {0}(IntPtr l) {{", name);
-			
 		}
 		
 		MethodBase[] GetMethods(Type t, string name, BindingFlags bf)
 		{
-
 			List<MethodBase> methods = new List<MethodBase>();
 
-			if(this.includeExtension && ((bf&BindingFlags.Instance) == BindingFlags.Instance)){
-				if(extensionMethods.ContainsKey(t)){
-					foreach(MethodInfo m in extensionMethods[t]){
-						if(m.Name == name 
-						   && !IsObsolete(m)
-						   && !DontExport(m)
-						   && isUsefullMethod(m)){
+			if(this.includeExtension && ((bf & BindingFlags.Instance) == BindingFlags.Instance)) {
+				if(extensionMethods.ContainsKey(t)) {
+					foreach(MethodInfo m in extensionMethods[t]) {
+						if( m.Name == name && 
+							!IsObsolete(m) && 
+							!DontExport(m) && 
+							isUsefullMethod(m) && 
+							!(m.IsGenericMethodDefinition && m.DeclaringType == t) ) { // ignore simple generic extension method declaring type
 							methods.Add(m);
 						}
 					}
@@ -1833,18 +1863,23 @@ namespace SLua
 			MemberInfo[] cons = t.GetMember(name, bf);
 			foreach (MemberInfo m in cons)
 			{
-				if (m.MemberType == MemberTypes.Method
-				    && !IsObsolete(m)
-				    && !DontExport(m)
-				    && isUsefullMethod((MethodInfo)m))
-					methods.Add((MethodBase)m);
-			}
-            methods.Sort((a, b) =>
-           {
-               return a.GetParameters().Length - b.GetParameters().Length;
-           });
-			return methods.ToArray();
+				if (m.MemberType == MemberTypes.Method) {
+					MethodInfo mi = (MethodInfo)m;
 
+					if ( !IsObsolete (mi) && 
+						!DontExport (mi) && 
+						isUsefullMethod (mi) &&
+						!(mi.IsGenericMethodDefinition && mi.DeclaringType == t) ) { // ignore simple generic extension method declaring type
+						methods.Add ((MethodBase)mi);
+					}
+				}
+			}
+
+			methods.Sort ((a, b) => {
+				return a.GetParameters ().Length - b.GetParameters ().Length;
+			});
+			
+			return methods.ToArray();
 		}
 		
 		void WriteFunctionImpl(StreamWriter file, MethodInfo m, Type t, BindingFlags bf)
@@ -1854,8 +1889,10 @@ namespace SLua
 
 			if (cons.Length == 1) // no override function
 			{
-				if (isUsefullMethod(m) && !m.ReturnType.ContainsGenericParameters && !m.ContainsGenericParameters) // don't support generic method
-					WriteFunctionCall(m, file, t,bf);
+				if (isUsefullMethod(m))
+				{
+					WriteFunctionCall (m, file, t, bf);
+				}
 				else
 				{
 					WriteError(file, "No matched override function to call");
@@ -1863,7 +1900,6 @@ namespace SLua
 			}
 			else // 2 or more override function
 			{
-
 				Write(file, "int argc = LuaDLL.lua_gettop(l);");
 				
 				bool first = true;
@@ -1872,18 +1908,18 @@ namespace SLua
 					if (cons[n].MemberType == MemberTypes.Method)
 					{
 						MethodInfo mi = cons[n] as MethodInfo;
-						
 						ParameterInfo[] pars = mi.GetParameters();
-						if (isUsefullMethod(mi)
-						    && !mi.ReturnType.ContainsGenericParameters
-						    /*&& !ContainGeneric(pars)*/) // don't support generic method
+
+						if (isUsefullMethod(mi))
 						{
 							bool isExtension = IsExtensionMethod(mi) && (bf & BindingFlags.Instance) == BindingFlags.Instance;
-							if (isUniqueArgsCount(cons, mi))
-								Write(file, "{0}(argc=={1}){{", first ? "if" : "else if", mi.IsStatic ? mi.GetParameters().Length : mi.GetParameters().Length + 1);
-							else
-								Write(file, "{0}(matchType(l,argc,{1}{2})){{", first ? "if" : "else if", mi.IsStatic&&!isExtension ? 1 : 2, TypeDecl(pars,isExtension?1:0));
-							WriteFunctionCall(mi, file, t,bf);
+
+							if (isUniqueArgsCount (cons, mi)) {
+								Write(file, "{0}(argc=={1}){{", first ? "if" : "else if", mi.IsStatic ? mi.GetParameters ().Length : mi.GetParameters ().Length + 1);
+							} else {
+								Write(file, "{0}(matchType(l,argc,{1}{2})){{", first ? "if" : "else if", mi.IsStatic && !isExtension ? 1 : 2, TypeDecl (pars, isExtension ? 1 : 0));
+							}
+							WriteFunctionCall(mi, file, t, bf);
 							Write(file, "}");
 							first = false;
 						}
@@ -1897,16 +1933,14 @@ namespace SLua
 		
 		bool isUniqueArgsCount(MethodBase[] cons, MethodBase mi)
 		{
-			foreach (MethodBase member in cons)
+			foreach (MethodBase m in cons)
 			{
-				MethodBase m = (MethodBase)member;
 				if (m != mi && mi.GetParameters().Length == m.GetParameters().Length)
 					return false;
 			}
 			return true;
 		}
-		
-		
+
 		void WriteCheckSelf(StreamWriter file, Type t)
 		{
 			if (t.IsValueType)
@@ -1921,25 +1955,23 @@ namespace SLua
 				Write(file, "{0} self=({0})checkSelf(l);", TypeDecl(t));
 		}
 
-
-		private void WriteFunctionCall(MethodInfo m, StreamWriter file, Type t,BindingFlags bf)
+		void WriteFunctionCall(MethodInfo m, StreamWriter file, Type t, BindingFlags bf)
 		{
-
-			bool isExtension = IsExtensionMethod(m) && (bf&BindingFlags.Instance) == BindingFlags.Instance;
+			bool isExtension = IsExtensionMethod(m) && (bf & BindingFlags.Instance) == BindingFlags.Instance;
 			bool hasref = false;
 			ParameterInfo[] pars = m.GetParameters();
 
-
 			int argIndex = 1;
 			int parOffset = 0;
-			if (!m.IsStatic )
+			if (!m.IsStatic)
 			{
 				WriteCheckSelf(file, t);
 				argIndex++;
 			}
-			else if(isExtension){
+			else if(isExtension)
+			{
 				WriteCheckSelf(file, t);
-				parOffset ++;
+				parOffset++;
 			}
 			for (int n = parOffset; n < pars.Length; n++)
 			{
@@ -2000,8 +2032,7 @@ namespace SLua
 				WritePushValue(m.ReturnType, file);
 				retcount = 2;
 			}
-			
-			
+
 			// push out/ref value for return value
 			if (hasref)
 			{
@@ -2025,7 +2056,6 @@ namespace SLua
 
 		string SimpleType(Type t)
 		{
-			
 			string tn = t.Name;
 			switch (tn)
 			{
@@ -2064,11 +2094,9 @@ namespace SLua
 			else
 				Write(file, "pushValue(l,{0});", ret);
 		}
-		
-		
+
 		void Write(StreamWriter file, string fmt, params object[] args)
 		{
-
 			fmt = System.Text.RegularExpressions.Regex.Replace(fmt, @"\r\n?|\n|\r", NewLine);
 
 			if (fmt.StartsWith("}")) indent--;
