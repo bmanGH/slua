@@ -64,8 +64,6 @@ public class LuaManager : MonoSingleton<LuaManager> {
 		}
 		Debug.Log("<LuaManager> lua state bind " + n + " items");
 
-//		LuaTimer.reg(L);
-//		LuaCoroutine.reg(L, manager);
 		Helper.reg(L);
 //		LuaValueType.reg(L);
 		LuaDLL.luaS_openextlibs(L);
@@ -92,10 +90,10 @@ public class LuaManager : MonoSingleton<LuaManager> {
 		fn = fn.Replace(".", "/");
 		TextAsset asset = Resources.Load(Path.HasExtension (fn) ? scriptRootPath + fn : scriptRootPath + fn + ".lua") as TextAsset;
 		if (asset == null) {
-			// fallback to ?/init.lua
+ 			// fallback to ?/init.lua
 			asset = Resources.Load(scriptRootPath + fn + "/init.lua") as TextAsset;
 			if (asset == null)
-				return null;
+ 				return null;
 		} 
 		return asset.bytes;
 	}
@@ -125,6 +123,20 @@ public class LuaManager : MonoSingleton<LuaManager> {
 		}
 	}
 
+	public int getMemoryUsed () {
+		if (luaState != null && isReady == true) {
+			return LuaDLL.lua_gc (luaState.L, LuaGCOptions.LUA_GCCOUNT, 0);
+		}
+
+		return 0;
+	}
+
+	public void gcCollect () {
+		if (luaState != null && isReady == true) {
+			LuaDLL.lua_gc (luaState.L, LuaGCOptions.LUA_GCCOLLECT, 0);
+		}
+	}
+
 	protected override void OnDestroy () {
 		base.OnDestroy ();
 
@@ -144,8 +156,6 @@ public class LuaManager : MonoSingleton<LuaManager> {
 		}
 
 		luaState.checkRef();
-
-//		LuaTimer.tick(Time.deltaTime);
 	}
 
 }

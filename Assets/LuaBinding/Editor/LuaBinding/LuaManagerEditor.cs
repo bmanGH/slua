@@ -36,15 +36,10 @@ public class LuaManagerEditor : Editor {
 				EditorGUILayout.LabelField ("Cache class object:", classObjCount.ToString());
 				EditorGUILayout.LabelField ("Cache value object:", valueObjCount.ToString());
 
-				int bytes = LuaDLL.lua_gc (L, LuaGCOptions.LUA_GCCOUNT, 0);
-				EditorGUILayout.LabelField ("Memory(Kb)", bytes.ToString ());
+				EditorGUILayout.LabelField ("Memory(Kb)", manager.getMemoryUsed().ToString());
 
-				if (GUILayout.Button ("Lua GC")) {
-					LuaDLL.lua_gc (L, LuaGCOptions.LUA_GCCOLLECT, 0);
-				}
-
-				if (GUILayout.Button ("Mono GC")) {
-					System.GC.Collect ();
+				if (GUILayout.Button ("GC Collect")) {
+					manager.gcCollect ();
 				}
 			}
 		}

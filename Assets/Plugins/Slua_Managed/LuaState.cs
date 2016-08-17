@@ -79,6 +79,7 @@ namespace SLua
 		static public OutputDelegate logDelegate;
 		static public OutputDelegate errorDelegate;
 
+		static public readonly StringBuilder printStrBuilder = new StringBuilder();
 
 		public delegate void UnRefAction(IntPtr l, int r);
 		struct UnrefPair
@@ -363,7 +364,7 @@ end
 		internal static int print(IntPtr L)
 		{
 			int n = LuaDLL.lua_gettop(L);
-			string s = "";
+			printStrBuilder.Length = 0;
 
 			LuaDLL.lua_getglobal(L, "tostring");
 
@@ -371,22 +372,22 @@ end
 			{
 				if (i > 1)
 				{
-					s += "    ";
+					printStrBuilder.Append ("    ");
 				}
 
 				LuaDLL.lua_pushvalue(L, -1);
 				LuaDLL.lua_pushvalue(L, i);
 
 				LuaDLL.lua_call(L, 1, 1);
-				s += LuaDLL.lua_tostring(L, -1);
+				printStrBuilder.Append (LuaDLL.lua_tostring(L, -1));
 				LuaDLL.lua_pop(L, 1);
 			}
 			LuaDLL.lua_settop(L, n);
 
 			if (logDelegate != null) {
-				logDelegate (s);
+				logDelegate (printStrBuilder.ToString());
 			} else {
-				Logger.Log(s);
+				Logger.Log(printStrBuilder.ToString());
 			}
 
 			return 0;
