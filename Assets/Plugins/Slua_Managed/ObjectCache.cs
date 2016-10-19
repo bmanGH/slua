@@ -36,6 +36,23 @@ namespace SLua
 		static IntPtr oldl = IntPtr.Zero;
 		static internal ObjectCache oldoc = null;
 
+#if LUA_OBJECT_CACHE_TRACE
+		private IntPtr _l;
+		private Dictionary<int, string> _cacheTrace = new Dictionary<int, string> ();
+		private Dictionary<int, string> _cacheTypeName = new Dictionary<int, string> ();
+
+		public Dictionary<int, string> cacheTrace {
+			get { return _cacheTrace; }
+		}
+		public Dictionary<int, string> cacheTypeName {
+			get { return _cacheTypeName; }
+		}
+
+		public object getCachedObject (int index) {
+			return get (_l, index);
+		}
+#endif
+
 		public static ObjectCache get(IntPtr l)
 		{
 			if (oldl == l)
@@ -192,6 +209,10 @@ namespace SLua
 			LuaDLL.lua_setfield(l, -2, "__mode");
 			LuaDLL.lua_setmetatable(l, -2);
 			udCacheRef = LuaDLL.luaL_ref(l, LuaIndexes.LUA_REGISTRYINDEX);
+
+#if LUA_OBJECT_CACHE_TRACE
+			_l = l;
+#endif
 		}
 
 		static public void clear()
@@ -224,6 +245,11 @@ namespace SLua
 					objMap.Remove(o);
 				}
 				cache.del(index);
+
+#if LUA_OBJECT_CACHE_TRACE
+				_cacheTrace.Remove(index);
+				_cacheTypeName.Remove(index);
+#endif
 			}
 		}
 #if !SLUA_STANDALONE
@@ -234,8 +260,17 @@ namespace SLua
             {
                 objMap.Remove(o);
                 cache.del(index);
+
+	#if LUA_OBJECT_CACHE_TRACE
+				_cacheTrace.Remove(index);
+				_cacheTypeName.Remove(index);
+	#endif
             }
         }
+		public void releaseUnityObject (UnityEngine.Object o)
+		{
+			gc (o);
+		}
 #endif
 
 		internal int add(object o)
@@ -245,6 +280,19 @@ namespace SLua
 			{
 				objMap[o] = objIndex;
 			}
+
+#if LUA_OBJECT_CACHE_TRACE
+			LuaDLL.lua_getglobal(_l, "debug");
+			LuaDLL.lua_getfield(_l, -1, "traceback");
+			LuaDLL.lua_call(_l, 0, 1);
+			LuaDLL.lua_remove(_l, -2);
+			string s = LuaDLL.lua_tostring(_l, -1);
+			LuaDLL.lua_pop(_l, 1);
+
+			_cacheTrace.Add(objIndex, s);
+			_cacheTypeName.Add(objIndex, o.GetType().Name);
+#endif
+
 			return objIndex;
 		}
 

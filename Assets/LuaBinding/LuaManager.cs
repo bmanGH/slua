@@ -158,4 +158,27 @@ public class LuaManager : MonoSingleton<LuaManager> {
 		luaState.checkRef();
 	}
 
+	public void releaseDestroyedUnityObjects () {
+		var objectCache = ObjectCache.get (luaState.L);
+		var objectList = objectCache.cache;
+		var releaseList = new List<UnityEngine.Object> ();
+
+		for (int i = 0; i < objectList.Count; i++) {
+			object o = objectList[i].v;
+			if (System.Object.ReferenceEquals(o, null) == false) {
+				if (objectCache.isGcObject (o) == true && typeof(UnityEngine.Object).IsAssignableFrom(o.GetType())) {
+					var unityObj = (UnityEngine.Object)o;
+					if (unityObj == null) {
+						releaseList.Add (unityObj);
+					}
+				}
+			}
+		}
+
+		for (int j = 0; j < releaseList.Count; j++) {
+			objectCache.releaseUnityObject (releaseList [j]);
+		}
+		releaseList = null;
+	}
+
 }
