@@ -449,33 +449,38 @@ namespace SLua
 			LuaTypes lt = LuaDLL.lua_type(l, p);
             switch (lt)
             {
-                case LuaTypes.LUA_TUSERDATA:
-                    object o = checkObj(l, p);
-                    if (o.GetType() != MonoType)
-                        throw new Exception(string.Format("{0} expect Type, got {1}", p, o.GetType().Name));
-                    t = (Type)o;
-					return true;
-                case LuaTypes.LUA_TTABLE:
-                    LuaDLL.lua_pushstring(l, "__type");
-                    LuaDLL.lua_rawget(l, p);
-                    if (!LuaDLL.lua_isnil(l, -1))
-                    {
-                        t = (Type)checkObj(l, -1);
-                        LuaDLL.lua_pop(l, 1);
-                        return true;
-                    }
-                    else
-                    {
-                        LuaDLL.lua_pushstring(l, "__fullname");
-                        LuaDLL.lua_rawget(l, p);
-                        tname = LuaDLL.lua_tostring(l, -1);
-                        LuaDLL.lua_pop(l, 2);
-                    }
-                    break;
+			case LuaTypes.LUA_TUSERDATA:
+				object o = checkObj (l, p);
+				if (o.GetType () != MonoType)
+					throw new Exception (string.Format ("{0} expect Type, got {1}", p, o.GetType ().Name));
+				t = (Type)o;
+				return true;
 
-                case LuaTypes.LUA_TSTRING:
-                    checkType(l, p, out tname);
-                    break;
+			case LuaTypes.LUA_TTABLE:
+				LuaDLL.lua_pushstring (l, "__type");
+				LuaDLL.lua_rawget (l, p);
+				if (!LuaDLL.lua_isnil (l, -1)) {
+					t = (Type)checkObj (l, -1);
+					if (t != null) {
+						LuaDLL.lua_pop (l, 1);
+						return true;
+					} else { //HACK: 未知情况下在Lua GC后Type对象会丢失，如果发现丢失则重新关联Type对象
+						LuaDLL.lua_pushstring (l, "__fullname");
+						LuaDLL.lua_rawget (l, p);
+						tname = LuaDLL.lua_tostring (l, -1);
+						LuaDLL.lua_pop (l, 2);
+					}
+				} else {
+					LuaDLL.lua_pushstring (l, "__fullname");
+					LuaDLL.lua_rawget (l, p);
+					tname = LuaDLL.lua_tostring (l, -1);
+					LuaDLL.lua_pop (l, 2);
+				}
+				break;
+
+			case LuaTypes.LUA_TSTRING:
+				checkType (l, p, out tname);
+				break;
             }
 
 			if (tname == null)
