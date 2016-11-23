@@ -459,18 +459,25 @@ namespace SLua
 			case LuaTypes.LUA_TTABLE:
 				LuaDLL.lua_pushstring (l, "__type");
 				LuaDLL.lua_rawget (l, p);
-				if (!LuaDLL.lua_isnil (l, -1)) {
-					t = (Type)checkObj (l, -1);
-					if (t != null) {
+				if (!LuaDLL.lua_isnil (l, -1)) 
+				{
+					t = checkObj (l, -1) as Type;
+					if (t != null) 
+					{
 						LuaDLL.lua_pop (l, 1);
 						return true;
-					} else { //HACK: 未知情况下在Lua GC后Type对象会丢失，如果发现丢失则重新关联Type对象
+					} 
+					else 
+					{
+						//HACK: 未知情况下在Lua GC后Type对象会丢失，如果发现丢失则重新关联Type对象
 						LuaDLL.lua_pushstring (l, "__fullname");
 						LuaDLL.lua_rawget (l, p);
 						tname = LuaDLL.lua_tostring (l, -1);
 						LuaDLL.lua_pop (l, 2);
 					}
-				} else {
+				} 
+				else 
+				{
 					LuaDLL.lua_pushstring (l, "__fullname");
 					LuaDLL.lua_rawget (l, p);
 					tname = LuaDLL.lua_tostring (l, -1);
