@@ -81,19 +81,12 @@ namespace SLua
 		{
 			if (valueref != 0)
 			{
-				//HACK: 在WebGL平台下，切换场景后state.refQueue可能会出现未知的长度越界问题，导致后续调用出现空指针错误
-				//		并且WebGL没有多线程的环境，故临时在此处避免使用到state.refQueue来避免问题的发生
-#if UNITY_WEBGL && !UNITY_EDITOR
-				LuaDLL.lua_unref(state.L, valueref);
-				valueref = 0;
-#else
 				LuaState.UnRefAction act = (IntPtr l, int r) =>
 				{
 					LuaDLL.lua_unref(l, r);
 				};
 				state.gcRef(act, valueref);
 				valueref = 0;
-#endif
 			}
 		}
 
